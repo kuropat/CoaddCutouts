@@ -1,0 +1,51 @@
+The program MakeCoaddCutouts.py is designed to be used
+by a user that have have DES stack installed and able to 
+use easyaccess program. The program is using some modules
+from easyaccess to communicate with the DES database.
+The example setup for the program is as follow:
+#! /bin/bash
+source /cvmfs/des.opensciencegrid.org/eeups/startupcachejob.sh
+setup python 2.7.9+0
+setup easyaccess
+setup fitsio 0.9.8rc1+3
+setup swarp 2.40.0+1
+setup psycopg2 2.4.6+7
+setup despyastro 0.3.5+0
+
+The program usage:
+    MakeCoaddCutouts.py   -t <tagname> -d <db archive>  -l <objlist> -s <stampsize> -r <res_flag>
+    Here:
+          <tabname> is prefix of  coadd table name like Y1A1  
+          <db_archive> is the database name where we will search for files like destest or desoper
+          <objlist> list of objects in the form objName,RA,Dec (RA,Dec in degrees)
+          <stampsize> is size of the cutout stamp in arcsec
+          <res_flag> if 0 each object cutouts are stored in subdirectory with the object name,
+                     if 1 results are stored in multi-extension fits file named by tile 
+     
+   MakeCoaddCutouts.py   -h  will display the above information.
+   
+The program optimizes  IO operations. For this the list of objects is analysed and
+list of objects that belong to a tile is created. So input files for given tile and 
+ neighboring tiles if necessary will be copied to data/ sub-directory and be used 
+ for making cut outs for all the objects.
+ For each object cutout stamps are created in workdir/ sub-directory for each band.
+These files will be then moved to a sub-directory named with the object name.
+Required PSF files will be created in the last one.
+This intermediate directory is used when we need to coadd stamps that belongs to neighboring
+tiles. The coadded stamps will be moved to resulting sub-directory.
+
+The size of the cut-out stamp is given in arcsec and will be corrected to provide exact number
+of pixels.  
+
+There are two options for presenting results:
+ res_flag = 0 Created cut-out images, weight masks and PSF images for each band will be stored in 
+ a sub-directory for each object.
+ res_flag = 1 a multi-extension  fits file will be created for each tile.
+ The file will contain 3 image extensions for each object (IMAGE,WEIGHT,PSF)
+ Each image in the file contains following header cards:
+ OBJECT - name of the object
+ BAND - name of the band (g,r,i,z,Y)
+ TYPE - (IMAGE,WEIGHT,PSF)
+ 
+ 
+ N. Kuropatkin  06/02/2016 
