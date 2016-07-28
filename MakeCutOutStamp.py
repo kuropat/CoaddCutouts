@@ -34,6 +34,8 @@ class MakeCutOutStamp(exceptions.Exception):
         self.objectName = ''
         self.band = ''
         self.im_type = ''
+        self.posx = 0.
+        self.posy = 0.
        
     """ Set info about the stamp object name, band, type - image or weight """    
     def setStampAtt(self,objectName,band,Im_type):
@@ -168,6 +170,10 @@ class MakeCutOutStamp(exceptions.Exception):
             os.remove(outpath)
         self.RA = string.atof(RAS)
         self.Dec = string.atof(DecS)
+        if not os.path.exists(self.infile):
+            self.posX = 0.
+            self.posY = 0.
+            return
         fitsfile = os.path.normpath(self.infile)
         fits=fitsio.FITS(fitsfile)
         if fitsfile.find('.fz') > 0 :

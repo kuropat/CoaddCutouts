@@ -136,6 +136,8 @@ class MakeCoaddCutouts():
             tileinfo = {}
             tileinfo = self.get_tile(SRA,SDEC)
             tilename = tileinfo.get("TILENAME")
+            if tilename == 'None':
+                continue
             tile_list.append(tilename)
             RALL = tileinfo.get("RALL")
             DECLL = tileinfo.get("DECLL")
@@ -150,7 +152,7 @@ class MakeCoaddCutouts():
             URAUR = tileinfo.get("URAUR")
             UDECUR = tileinfo.get("UDECUR")
             keys = tiles.keys()
-            if tilename not in keys:
+            if tilename not in keys and len(tilename) >=1:
                 tiles.update({tilename:tileinfo})
             # Check if we need neighbor tiles 
             if SRAmin < RALL and SDecmin > DECLL: # West
@@ -266,14 +268,29 @@ class MakeCoaddCutouts():
     def get_tile(self,RA,DEC):
         query_geom = """ select TILENAME,PROJECT,RA,DEC,PIXELSIZE,NPIX_RA,NPIX_DEC,URALL,UDECLL,URAUR,UDECUR,
         RALL,DECLL,RAUL,DECUL,RAUR,DECUR,RALR,DECLR
-                     from coaddtile where URALL<{SRA} and UDECLL<{SDEC} and URAUR>{SRA} and UDECUR>{SDEC}"""
-#        tile_inf = {}
-        query = query_geom.format(SRA = str(RA),SDEC = str(DEC))
-        self.cur.execute(query)
-        desc = [d[0] for d in self.cur.description]
-        line = self.cur.fetchone()
-        tile_inf = dict(zip(desc,line))
-        return tile_inf
+                     from coaddtile where RALL<{SRA} and DECLL<{SDEC} and RALR>{SRA} and DECUR>{SDEC}"""
+
+        try:
+            query = query_geom.format(SRA = str(RA),SDEC = str(DEC))
+            self.cur.execute(query)
+            desc = [d[0] for d in self.cur.description]
+            line = self.cur.fetchone()
+            if line != None:
+                tile_inf = dict(zip(desc,line))
+            else:
+                tile_inf = {'TILENAME':'None'}
+            return tile_inf
+        except Exception as e:
+            query = query_geom.format(SRA = str(RA+360.),SDEC = str(DEC))
+            self.cur.execute(query)
+            desc = [d[0] for d in self.cur.description]
+            line = self.cur.fetchone()
+            if line != None:
+                tile_inf = dict(zip(desc,line))
+            else:
+                tile_inf = {'TILENAME':'None'}
+            return tile_inf
+
     
     """ Creates a list of objects in a tile """
     def get_objForTile(self):
@@ -283,16 +300,33 @@ class MakeCoaddCutouts():
         for okey in objkeys:  # loop ob objects
             objID = okey
             obj_list = []
-            tileListForObj =  self.tilesForObj.get(objID)         
-            tileID0 =  tileListForObj[0] # get first object
+            try:
+                tileListForObj =  self.tilesForObj.get(objID)         
+                tileID0 =  tileListForObj[0] # get first object
             
-            keys = obj_dict.keys()  # list of tiles in object
-            if objID in keys:
-                for key in keys:  # loop on objects
-                    tileID = (obj_dict.get(key))[0]
-                    if tileID == tileID0:
-                        obj_list.append(key)
-            self.objForTile.update({tileID0:obj_list})
+                keys = obj_dict.keys()  # list of tiles in object
+                if objID in keys:
+                    for key in keys:  # loop on objects
+                        tileID = (obj_dict.get(key))[0]
+                        if tileID == tileID0:
+                            obj_list.append(key)
+                self.objForTile.update({tileID0:obj_list})
+            except Exception as e:
+                print " objID=%s \n" % objID
+                lasterr = str(e).strip()
+                print(colored("Error when searching for tile info: %s" % lasterr, "red"))
+            
+            
+#            tileListForObj =  self.tilesForObj.get(objID)         
+#            tileID0 =  tileListForObj[0] # get first object
+            
+#            keys = obj_dict.keys()  # list of tiles in object
+#            if objID in keys:
+#                for key in keys:  # loop on objects
+#                    tileID = (obj_dict.get(key))[0]
+#                    if tileID == tileID0:
+#                        obj_list.append(key)
+#            self.objForTile.update({tileID0:obj_list})
 
         
     
@@ -409,23 +443,26 @@ class MakeCoaddCutouts():
         respath = self.curdir+'/'+objName+'/'
         imfile = respath+objName+'_'+band+'_image.fits'
         im_type = 'IMAGE'
-        fits1 = fitsio.FITS(imfile,'rw')
-        imhdr = fits1[0].read_header()
-        data =  fits1[0].read()
-        self.writeFits(resOutPath,data,imhdr,objName,band,im_type,first)
-        first = False
+        if os.path.exists(imfile):
+            fits1 = fitsio.FITS(imfile,'rw')
+            imhdr = fits1[0].read_header()
+            data =  fits1[0].read()
+            self.writeFits(resOutPath,data,imhdr,objName,band,im_type,first)
+            first = False
         imfile = respath+objName+'_'+band+'_weight.fits'
         im_type = 'WEIGHT'
-        fits1 = fitsio.FITS(imfile,'rw')
-        imhdr = fits1[0].read_header()
-        data =  fits1[0].read()
-        self.writeFits(resOutPath,data,imhdr,objName,band,im_type,first)
+        if os.path.exists(imfile):
+            fits1 = fitsio.FITS(imfile,'rw')
+            imhdr = fits1[0].read_header()
+            data =  fits1[0].read()
+            self.writeFits(resOutPath,data,imhdr,objName,band,im_type,first)
         psffile = respath+objName+'_'+band+'_psf.fits'
         im_type = 'PSF'
-        fits1 = fitsio.FITS(psffile,'rw')
-        imhdr = fits1[0].read_header()
-        data =  fits1[0].read()
-        self.writeFits(resOutPath,data,imhdr,objName,band,im_type,first)
+        if os.path.exists(psffile):
+            fits1 = fitsio.FITS(psffile,'rw')
+            imhdr = fits1[0].read_header()
+            data =  fits1[0].read()
+            self.writeFits(resOutPath,data,imhdr,objName,band,im_type,first)
         
     def writeFits(self,outPath,im_data,header,objName,band,im_type,first):
         if not first: fits2 = fitsio.FITS(outPath,'rw')
@@ -438,7 +475,7 @@ class MakeCoaddCutouts():
             fits2.write(im_data,header=header)
 
             
-    """ create cutouts in the wordir """
+    """ create cutouts in the workdir """
     def makeTileCutouts(self,tile):
         resOutFile = tile+'_cutouts.fits'
         objs = self.objForTile.get(tile)
@@ -483,8 +520,10 @@ class MakeCoaddCutouts():
                     weightName = weightTab.get(band)
                     resWeight = respath+objname+'_'+band+'_weight.fits'
                     resIm = respath+objname+'_'+band+'_image.fits'
-                    shutil.move(imageName[0], resIm)
-                    shutil.move(weightName[0], resWeight)
+                    if os.path.exists(imageName[0]):
+                        shutil.move(imageName[0], resIm)
+                    if os.path.exists(weightName[0]):
+                        shutil.move(weightName[0], resWeight)
                 else:
                     images = self.makeList(imTab.get(band))
                     weights = self.makeList(weightTab.get(band))

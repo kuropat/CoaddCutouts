@@ -29,6 +29,8 @@ class CreatePSFFile(exceptions.Exception):
         self.wcsInfo = []
         self.objectName = ''
         self.band = ''
+        self.posx = 0.
+        self.posy = 0.
 
 
     def setPSFAtt(self,objectName,band):
@@ -46,6 +48,10 @@ class CreatePSFFile(exceptions.Exception):
         self.posX = posX
         self.posY = posY
 #
+        if not os.path.exists(self.infile):
+            self.posX = 0.
+            self.posY = 0.
+            return
         fitsfile = os.path.normpath(self.infile)
         fits=fitsio.FITS(fitsfile)
         prihdr = fits[1].read_header()
