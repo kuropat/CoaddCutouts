@@ -15,22 +15,22 @@ import sys
 import fitsio
 import exceptions
 import string
+import psfex
 import getopt
 import numpy as np
-#from despyastro import wcsutil
+#
 
 class CreatePSFFile(exceptions.Exception):
     
     def __init__(self, infile,outfile):
-        self.degPerPix = 0.27/3600.
+        self.degPerPix = 0.263/3600.
         self.infile = infile
         self.outfile = outfile
         self.resh = {}
         self.wcsInfo = []
         self.objectName = ''
         self.band = ''
-        self.posx = 0.
-        self.posy = 0.
+
 
 
     def setPSFAtt(self,objectName,band):
@@ -42,54 +42,32 @@ class CreatePSFFile(exceptions.Exception):
         '''
         
     def produce(self,posX,posY):
+        print "CreatePSFFile input %s \n" % self.infile
+        if not os.path.isfile(self.infile):
+            print " CreatePSFFile input file %s do not exists \n" % self.infile
+            return
+
+#
         outpath = os.path.normpath(self.outfile)
         if os.path.exists(outpath):
             os.remove(outpath)
         self.posX = posX
         self.posY = posY
+#        fitsfile = os.path.normpath(self.posX,self.posY)
+
+        pex=psfex.PSFEx(self.infile) 
+        image=pex.get_rec(self.posX,self.posY)
 #
-        if not os.path.exists(self.infile):
-            self.posX = 0.
-            self.posY = 0.
-            return
-        fitsfile = os.path.normpath(self.infile)
-        fits=fitsio.FITS(fitsfile)
-        prihdr = fits[1].read_header()
-
-        x_psf = self.posX
-        y_psf = self.posY
-#
-        x0 = prihdr['POLZERO1']
-        xscale = prihdr['POLSCAL1']
-        y0 = prihdr['POLZERO2']
-        yscale = prihdr['POLSCAL2']
-        psf_fwhm = prihdr['PSF_FWHM']
-        psf_samp = prihdr['PSF_SAMP']
-        psf_axis = prihdr['PSFNAXIS']
-        psf_ny = prihdr['PSFAXIS1']
-        psf_nx = prihdr['PSFAXIS2']
-        psf_nc = prihdr['PSFAXIS3']
-#
-        pim = fits[1]['PSF_MASK'][0]  # this is array 6,15,15
-        psf_im = np.zeros((psf_ny,psf_nx))
-        x1 = (x_psf - x0)/xscale;
-        y1 = (y_psf - y0)/yscale;
-
-        for  i in range(0,psf_ny):
-            for j in range(0,psf_nx):
-                psf_im[i,j] = pim[0,i,j] + pim[1,i,j]*x1 + pim[2,i,j]*x1*x1 + pim[3,i,j]*y1 + pim[4,i,j]*y1*y1 + pim[5,i,j]*x1*y1
-
-        self.writePSF(psf_im)
-
+        print "writing PSF image to file %s \n" % self.outfile
+        self.writePSF(image)
             
     def writePSF(self,psf_im):
         fits1 = fitsio.FITS(self.outfile,'rw')
         fits1.create_image_hdu(psf_im)
         header = fits1[0].read_header()
-#        header['OBJECT']=self.objectName
-#        header['BAND']=self.band
+
         fits1.write(psf_im,header=header)
-        fits1[0].write_keys({'OBJECT':self.objectName,'BAND':self.band})
+        fits1[0].write_keys({'OBJECT':self.objectName,'BAND':self.band,'TYPE':'PSF'})
         fits1.close()
 
            
